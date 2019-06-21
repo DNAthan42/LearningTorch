@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import threading
+import mnist
 
 
 class Net(nn.Module):
@@ -15,12 +16,12 @@ class Net(nn.Module):
         super(Net, self).__init__()
         # 1 input image channel, 6 output channels, 3x3 square convolution
         # kernel
-        self.conv1 = nn.Conv2d(1, 6, 3)
+        self.conv1 = nn.Conv2d(1, 6, 3, padding=2)
         self.conv2 = nn.Conv2d(6, 16, 3)
         # an affine operation: y = Wx + b
         self.fc1 = nn.Linear(16 * 6 * 6, 120)  # 6*6 from image dimension
         self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 11)
+        self.fc3 = nn.Linear(84, 10)
 
     def forward(self, x):
         # Max pooling over a (2, 2) window
@@ -65,6 +66,11 @@ def stop_thread():
     input("Press enter to exit\n")
     stop = True
 
+def mnist_target(num):
+    t = torch.zeros(1, 10)
+    t[0][num] = 1
+    return t
+
 
 if __name__ == "__main__":
     net = Net()
@@ -74,18 +80,24 @@ if __name__ == "__main__":
 
     loss_list = []
 
-    input("Press any key to start")
-    print("starting")
-    threading.Thread(target=stop_thread).start()
-    count = 0
+    # input("Press any key to start")
+    # print("starting")
+    # threading.Thread(target=stop_thread).start()
+
+    train_images = mnist.train_images()
+    train_labels = mnist.train_labels()
+    print(train_labels[0])
+    image_number = 0
     try:
-        while not stop:
+        while image_number < len(train_images):
             optimizer.zero_grad()
-            net_in = torch.randn(1,1,32,32)  # get random input
+            net_in = torch.as_tensor(train_images[image_number].reshape(1,1,28,28), dtype=torch.float)
+            # net_in = torch.randn(1,1,28,28)
+            # print(net_in)
 
             output = net(net_in)  # Feed random input.
-            target = net.target(net_in)  # calculate loss from given target function.
             # also, apparently '__call__' is a thing in python
+            target = mnist_target(train_labels[image_number])
 
             loss = criterion(output, target)  # evaluate loss
 
@@ -95,17 +107,16 @@ if __name__ == "__main__":
             optimizer.step()  # does the update, apparently.
 
             # Just making sure the function is still running
+            image_number += 1
+            # if image_number % 1000 == 0:
+            #     print(image_number/ 1000, end='')
             # count += 1
-            if count % 1000 == 0:
-                print(count / 1000, end='')
 
-            count += 1
-            if count >= 5000:
-                stop = True
 
     except KeyboardInterrupt:
         pass
 
+    print()
     # print(loss_list)
     for v in range(0,len(loss_list)):
         print(f"{v}, {loss_list[v]}")
